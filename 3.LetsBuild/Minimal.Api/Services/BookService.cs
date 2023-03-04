@@ -29,24 +29,41 @@ class BookService : IBookService
         return result == 1;
     }
 
-    public Task<Book?> GetByIsbnAsync(string isbn)
+    public async Task<Book?> GetByIsbnAsync(string isbn)
     {
-        throw new NotImplementedException();
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+
+        var book = await connection.QuerySingleOrDefaultAsync<Book>(@"Select * FROM Books WHERE Isbn = @isbn", new {Isbn = isbn});
+        return book;
     }
 
-    public Task<IEnumerable<Book>> GetAllAsync()
+    public async Task<IEnumerable<Book>> GetAllAsync()
     {
-        throw new NotImplementedException();
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+
+        return await connection.QueryAsync<Book>(@"Select * FROM Books");
     }
 
-    public Task<IEnumerable<Book>> SearchByTitleAsync(string searchTerm)
+    public async Task<IEnumerable<Book>> SearchByTitleAsync(string searchTerm)
     {
-        throw new NotImplementedException();
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        
+        var books =  await connection.QueryAsync<Book>("Select * FROM Books WHERE Title LIKE '%' || @searchTerm || '%'", new { searchTerm});
+        return books;
     }
 
-    public Task<bool> UpdateAsync(Book book)
+    public async Task<bool> UpdateAsync(Book book)
     {
-        throw new NotImplementedException();
+        var existingBook = await this.GetByIsbnAsync(book.Isbn);
+        if (existingBook is null)
+        {
+            return false;
+        }
+        
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        var result = await connection.ExecuteAsync(
+            @"Update Books set Title = @Title, Author = @Author, PageCount = @PageCount WHERE Isbn = @Isbn", book);
+        return result == 1;
     }
 
     public Task<bool> DeleteAsync(string isbn)

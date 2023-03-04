@@ -24,14 +24,21 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.MapGet("/books", (string? searchTerm, BookRepository bookRepo) =>
+app.MapGet("/books", (string? searchTerm, IBookService bookService) =>
 {
-    if (searchTerm is null)
+    if (searchTerm is null && string.IsNullOrWhiteSpace(searchTerm))
     {
-        return Results.Ok(bookRepo.GetBooks());
+        return Results.Ok(bookService.GetAllAsync());
     }
-    var results = bookRepo.Search(searchTerm);
+    var results = bookService.SearchByTitleAsync(searchTerm);
     return Results.Ok(results);
+});
+
+app.MapGet("books/{isbn}", async (string isbn, IBookService bookService) =>
+{
+    var book = await bookService.GetByIsbnAsync(isbn);
+
+    return book is not null ? Results.Ok(book) : Results.NotFound();
 });
 
 //app.MapGet("books", (BookRepository bookRepo) => Results.Ok(bookRepo.GetBooks()));
@@ -66,6 +73,24 @@ app.MapPatch("books/{bookId}", (string bookId, UpdateBookRequest updateRequest, 
 
     return Results.Ok(book);
 });
+
+app.MapPut("books/{isbn}", async (string isbn, Book book, IBookService bookService, IValidator<Book> validator)  =>
+{
+    book.Isbn = isbn;
+    var validationResult = await validator.ValidateAsync(book);
+
+    if (validationResult.IsValid)
+    {
+        return Results.BadRequest(validationResult.Errors);
+    }
+
+    var updated = await bookService.UpdateAsync(book);
+
+    return updated ? Results.Ok(book) : Results.NotFound();
+});
+
+
+
 
 app.MapDelete("books/{bookId}", (string bookId, BookRepository bookRepository) =>
 {
