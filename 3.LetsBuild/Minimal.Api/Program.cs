@@ -1,12 +1,22 @@
 using FluentValidation;
 using FluentValidation.Results;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Authorization;
 using Minimal.Api;
+using Minimal.Api.Auth;
 using Minimal.Api.Data;
 using Minimal.Api.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddJsonFile("appsettings.local.json", true, true);
+
+builder.Services.AddAuthentication(ApiKeySchemeConstants.SchemeName).AddScheme<ApiKeyAuthSchemeOptions, ApiKeyAuthHandler>(
+    ApiKeySchemeConstants.SchemeName,
+    _ => { });
+builder.Services.AddAuthorization();
+
+
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ =>  new SqliteConnectionFactory("Data source=./library.db"));
 builder.Services.AddSingleton<BookRepository>();
@@ -24,7 +34,11 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.MapGet("/books", (string? searchTerm, IBookService bookService) =>
+app.UseAuthorization();
+
+app.MapGet("/books",
+            [Authorize(AuthenticationSchemes = ApiKeySchemeConstants.SchemeName)]
+    (string? searchTerm, IBookService bookService) =>
 {
     if (searchTerm is null && string.IsNullOrWhiteSpace(searchTerm))
     {
