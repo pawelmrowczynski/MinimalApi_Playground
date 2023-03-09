@@ -46,17 +46,17 @@ app.MapGet("/books",
     }
     var results = bookService.SearchByTitleAsync(searchTerm);
     return Results.Ok(results);
-});
+}).WithName("GetBooks");
 
 app.MapGet("books/{isbn}", async (string isbn, IBookService bookService) =>
 {
     var book = await bookService.GetByIsbnAsync(isbn);
 
     return book is not null ? Results.Ok(book) : Results.NotFound();
-});
+}).WithName("GetBook");
 
 //app.MapGet("books", (BookRepository bookRepo) => Results.Ok(bookRepo.GetBooks()));
-app.MapPost("books", async (Book book, IBookService bookService, IValidator<Book> validator)  =>
+app.MapPost("books", async (Book book, IBookService bookService, IValidator<Book> validator, LinkGenerator linker, HttpContext context)  =>
 {
     var validationResult = await validator.ValidateAsync(book);
 
@@ -74,8 +74,14 @@ app.MapPost("books", async (Book book, IBookService bookService, IValidator<Book
         });
     }
 
-    return Results.Created($"/books/{book.Isbn}", book);
-});
+    // var path = linker.GetPathByName("GetBook", new { isbn = book.Isbn })!;
+    var locationUri = linker.GetUriByName(context, "GetBook", new { isbn = book.Isbn })!;
+    return Results.Created(locationUri, book);
+
+    // return Results.CreatedAtRoute("GetBook", new { isbn = book.Isbn }, book);
+
+    // return Results.Created($"/books/{book.Isbn}", book);
+}).WithName("CreateBook");
 
 app.MapPatch("books/{bookId}", (string bookId, UpdateBookRequest updateRequest, BookRepository bookRepository) =>
 {
@@ -86,7 +92,7 @@ app.MapPatch("books/{bookId}", (string bookId, UpdateBookRequest updateRequest, 
     book.PageCount = updateRequest.PageCount;
 
     return Results.Ok(book);
-});
+}).WithName("UpdateBook");
 
 app.MapPut("books/{isbn}", async (string isbn, Book book, IBookService bookService, IValidator<Book> validator)  =>
 {
@@ -110,7 +116,7 @@ app.MapDelete("books/{bookId}", (string bookId, BookRepository bookRepository) =
 {
     bookRepository.DeleteBook(bookId);
     return Results.Ok();
-});
+}).WithName("DeleteNook");
 
 
 var databaseInitializer = app.Services.GetRequiredService<DatabaseInitializer>();
